@@ -194,8 +194,7 @@ void MainWindow::updateMenus() {
     windowMenuSeparatorAct->setVisible(hasMdiChild);
 
 #ifndef QT_NO_CLIPBOARD
-    bool hasSelection = (activeMdiChild() &&
-                         activeMdiChild()->textCursor().hasSelection());
+    bool hasSelection = (activeMdiChild() && activeMdiChild()->getSelection());
     cutAct->setEnabled(hasSelection);
     copyAct->setEnabled(hasSelection);
 #endif

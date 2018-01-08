@@ -6,16 +6,77 @@
 #endif
 
 #include "imagewindow.h"
+#include "utils.h"
+
+ImageScene::ImageScene() {
+    pathItem = new QGraphicsPathItem;
+    pathItem->setPen(QPen(Qt::black, 2, Qt::DashLine));
+    pathItem->setBrush(QBrush(QColor(0, 100, 200, 50))); // half-transparent light blue
+    pathItem->setZValue(100); // put on top of everything else
+    addItem(pathItem);
+
+    imageItem = nullptr;
+    inSelection = false;
+    hasSelection = false;
+}
+
+void ImageScene::setImage(const QImage &image) {
+    if (imageItem != nullptr)
+        removeItem(imageItem);
+
+    imageSize = image.size();
+    imageItem = new QGraphicsPixmapItem(QPixmap::fromImage(image));
+    imageItem->setZValue(0);
+    imageItem->setTransformationMode(Qt::SmoothTransformation);
+    addItem(imageItem);
+}
+
+const QPainterPath *ImageScene::getSelection() const {
+    return hasSelection ? &lassoPath : nullptr;
+}
+
+QPointF ImageScene::clampedPoint(const QPointF &point) {
+    auto pos = point;
+    pos.setX(utils::clamp(pos.x(), 0.0, static_cast<qreal>(imageSize.width())));
+    pos.setY(utils::clamp(pos.y(), 0.0, static_cast<qreal>(imageSize.height())));
+    return pos;
+}
+
+void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
+    if (event->button() == Qt::LeftButton && imageItem != nullptr) {
+        inSelection = true;
+        lassoPath = QPainterPath(clampedPoint(event->scenePos()));
+        lassoPath.setFillRule(Qt::WindingFill);
+        pathItem->setPath(lassoPath);
+    }
+}
+
+void ImageScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
+    if (inSelection) {
+        lassoPath.lineTo(clampedPoint(event->scenePos()));
+        pathItem->setPath(lassoPath);
+    }
+}
+
+void ImageScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
+    if (inSelection) {
+        lassoPath.closeSubpath();
+        lassoPath = lassoPath.simplified();
+        pathItem->setPath(lassoPath);
+        inSelection = false;
+        hasSelection = true;
+    }
+}
 
 ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
-    scene = new QGraphicsScene();
+    scene = new ImageScene;
     view = new QGraphicsView(scene);
     view->setRenderHint(QPainter::Antialiasing);
 
-    imageItem = nullptr;
     inGesture = false;
 
     setCentralWidget(view);
+    view->setMouseTracking(true);
 
     setStatusBar(new QStatusBar);
     zoomSlider = new QSlider(Qt::Horizontal, statusBar());
@@ -39,9 +100,7 @@ ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
 }
 
 void ImageWindow::setSlider(double scale) {
-    if (scale < 0.01) scale = 0.01;
-    if (scale > 5) scale = 5;
-
+    scale = utils::clamp(scale, 0.01, 5.0);
     this->scale = scale;
     auto percentage = static_cast<int>(scale * 100);
     zoomScaleLabel->setText(QStringLiteral("%1%").arg(percentage));
@@ -59,15 +118,15 @@ void ImageWindow::setSlider(double scale) {
 bool ImageWindow::loadFile(const QString &filePath) {
     QImageReader reader(filePath);
     reader.setAutoTransform(true);
-    const QImage newImage = reader.read();
-    if (newImage.isNull()) {
+    const QImage image = reader.read();
+    if (image.isNull()) {
         QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
                                  tr("Cannot load %1: %2").arg(QDir::toNativeSeparators(filePath), reader.errorString()));
         return false;
     }
 
-    setImage(newImage);
-    imageSize = newImage.size();
+    scene->setImage(image);
+    imageSize = image.size();
 
     setWindowFilePath(QFileInfo(filePath).canonicalFilePath());
 
@@ -75,10 +134,10 @@ bool ImageWindow::loadFile(const QString &filePath) {
 }
 
 bool ImageWindow::event(QEvent *event) {
-    if (event->type() == QEvent::MouseButtonPress) {
-        auto pos = dynamic_cast<QMouseEvent *>(event)->localPos();
-        qDebug() << "Mouse press" << pos << view->mapToScene(pos.toPoint()) << view->viewportTransform().inverted().map(pos);
-    }
+//    if (event->type() == QEvent::MouseButtonPress) {
+//        auto pos = dynamic_cast<QMouseEvent *>(event)->localPos();
+//        qDebug() << "Mouse press" << pos << view->mapToScene(pos.toPoint()) << view->viewportTransform().inverted().map(pos);
+//    }
     if (event->type() == QEvent::Gesture)
         return gestureEvent(dynamic_cast<QGestureEvent *>(event));
     if (event->type() == QEvent::NativeGesture)
@@ -131,34 +190,32 @@ const QString ImageWindow::currentFileName() const {
     return QFileInfo(windowFilePath()).fileName();
 }
 
-void ImageWindow::setImage(const QImage &newImage) {
-    if (imageItem != nullptr) {
-        scene->removeItem(imageItem);
-    }
-    imageItem = new QGraphicsPixmapItem(QPixmap::fromImage(newImage));
-    imageItem->setTransformationMode(Qt::SmoothTransformation);
-    scene->addItem(imageItem);
-
-//    scaleFactor = 1.0;
-
-//    scrollArea->setVisible(true);
-//    printAct->setEnabled(true);
-//    fitToWindowAct->setEnabled(true);
-//    updateActions();
-
-//    if (!fitToWindowAct->isChecked())
-//        imageLabel->adjustSize();
-}
-
 void ImageWindow::showWithSizeHint(QSize parentSize) {
     if (imageSize.height() > parentSize.height() || imageSize.width() > parentSize.width()) {
-        view->fitInView(imageItem, Qt::KeepAspectRatio);
+        view->fitInView(QRect(QPoint(0, 0), imageSize), Qt::KeepAspectRatio);
         setSlider(view->matrix().m11());
         showMaximized();
     } else {
         resize(imageSize);
         show();
     }
+}
+
+const bool ImageWindow::hasSelection() const {
+    return scene->getSelection() != nullptr;
+}
+
+void ImageWindow::copy() {
+    auto *path = scene->getSelection();
+    if (path == nullptr) return;
+}
+
+void ImageWindow::paste() {
+
+}
+
+void ImageWindow::cut() {
+
 }
 
 /*
@@ -210,22 +267,6 @@ bool ImageWindow::saveAs() {
     initializeImageFileDialog(dialog, QFileDialog::AcceptSave);
 
     return dialog.exec() == QDialog::Accepted && !saveFile(dialog.selectedFiles().first());
-}
-
-void ImageWindow::print() {
-    Q_ASSERT(imageLabel->pixmap());
-#if QT_CONFIG(printdialog)
-    QPrintDialog dialog(&printer, this);
-    if (dialog.exec() != 0) {
-        QPainter painter(&printer);
-        QRect rect = painter.viewport();
-        QSize size = imageLabel->pixmap()->size();
-        size.scale(rect.size(), Qt::KeepAspectRatio);
-        painter.setViewport(rect.x(), rect.y(), size.width(), size.height());
-        painter.setWindow(imageLabel->pixmap()->rect());
-        painter.drawPixmap(0, 0, *imageLabel->pixmap());
-    }
-#endif
 }
 
 void ImageWindow::copy() {

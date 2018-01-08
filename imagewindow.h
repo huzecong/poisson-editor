@@ -1,9 +1,33 @@
-#ifndef MDICHILD_H
-#define MDICHILD_H
+#ifndef POISSONEDITOR_IMAGEWINDOW_H
+#define POISSONEDITOR_IMAGEWINDOW_H
 
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+
+class ImageScene : public QGraphicsScene {
+Q_OBJECT
+
+public:
+    ImageScene();
+
+    void setImage(const QImage &image);
+    const QPainterPath *getSelection() const;
+
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+
+private:
+    QPointF clampedPoint(const QPointF &point);
+    bool inSelection, hasSelection;
+    QPainterPath lassoPath;
+    QSize imageSize;
+
+    QGraphicsPathItem *pathItem;
+    QGraphicsPixmapItem *imageItem;
+};
 
 class ImageWindow : public QMainWindow {
 Q_OBJECT
@@ -16,43 +40,32 @@ public:
 
     void showWithSizeHint(QSize parentSize);
 
-//public slots:
-//    bool open();
-//    bool saveAs();
-//    void print();
-//    void copy();
-//    void paste();
-//    void zoomIn();
-//    void zoomOut();
-//    void normalSize();
-//    void fitToWindow();
-//
-private:
-//    void updateActions();
-//    bool saveFile(const QString &fileName);
-    void setImage(const QImage &newImage);
+    const bool hasSelection() const;
+    void copy();
+    void paste();
+    void cut();
 
+private:
     double scale;
     void setSlider(double scale);
 
+protected:
     bool event(QEvent *event) override;
     bool gestureEvent(QGestureEvent *event);
     bool nativeGestureEvent(QNativeGestureEvent *event); // macOS-specific
-//    void scaleImage(double factor);
-//    void adjustScrollBar(QScrollBar *scrollBar, double factor);
 
+private:
     QSize imageSize;
     bool inGesture;
     double scaleBeforeGesture;
     double cumulativeScale;
 
-    QGraphicsScene* scene;
-    QGraphicsView* view;
-    QGraphicsPixmapItem *imageItem;
+    ImageScene *scene;
+    QGraphicsView *view;
 
     QSlider *zoomSlider;
     QLabel *zoomScaleLabel;
 
 };
 
-#endif
+#endif //POISSONEDITOR_IMAGEWINDOW_H

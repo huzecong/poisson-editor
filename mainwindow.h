@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef POISSONEDITOR_MAINWINDOW_H
+#define POISSONEDITOR_MAINWINDOW_H
 
 #include <QMainWindow>
 
@@ -78,4 +78,4 @@ private:
     QAction *windowMenuSeparatorAct;
 };
 
-#endif
+#endif //POISSONEDITOR_MAINWINDOW_H
