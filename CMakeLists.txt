@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(SOURCE_FILES
         main.cpp
+        utils.h
+        mainwindow.h
         mainwindow.cpp
+        imagewindow.h
         imagewindow.cpp)
 
 # Add the path to the Qt installation/files

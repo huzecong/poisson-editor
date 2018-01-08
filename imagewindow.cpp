@@ -1,4 +1,5 @@
 #include <QtWidgets>
+#include <queue>
 
 #if defined(QT_PRINTSUPPORT_LIB)
 //#if QT_CONFIG(printdialog)
@@ -14,18 +15,14 @@ ImageScene::ImageScene() {
     pathItem->setBrush(QBrush(QColor(0, 100, 200, 50))); // half-transparent light blue
     pathItem->setZValue(100); // put on top of everything else
     addItem(pathItem);
-
-    imageItem = nullptr;
-    inSelection = false;
-    hasSelection = false;
 }
 
-void ImageScene::setImage(const QImage &image) {
+void ImageScene::setPixmap(const QPixmap &pixmap) {
     if (imageItem != nullptr)
         removeItem(imageItem);
 
-    imageSize = image.size();
-    imageItem = new QGraphicsPixmapItem(QPixmap::fromImage(image));
+    imageSize = pixmap.size();
+    imageItem = new QGraphicsPixmapItem(pixmap);
     imageItem->setZValue(0);
     imageItem->setTransformationMode(Qt::SmoothTransformation);
     addItem(imageItem);
@@ -72,8 +69,6 @@ ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
     scene = new ImageScene;
     view = new QGraphicsView(scene);
     view->setRenderHint(QPainter::Antialiasing);
-
-    inGesture = false;
 
     setCentralWidget(view);
     view->setMouseTracking(true);
@@ -125,7 +120,8 @@ bool ImageWindow::loadFile(const QString &filePath) {
         return false;
     }
 
-    scene->setImage(image);
+    originalImage = QPixmap::fromImage(image);
+    scene->setPixmap(originalImage);
     imageSize = image.size();
 
     setWindowFilePath(QFileInfo(filePath).canonicalFilePath());
@@ -134,10 +130,12 @@ bool ImageWindow::loadFile(const QString &filePath) {
 }
 
 bool ImageWindow::event(QEvent *event) {
-//    if (event->type() == QEvent::MouseButtonPress) {
-//        auto pos = dynamic_cast<QMouseEvent *>(event)->localPos();
-//        qDebug() << "Mouse press" << pos << view->mapToScene(pos.toPoint()) << view->viewportTransform().inverted().map(pos);
-//    }
+    if (event->type() == QEvent::MouseButtonPress) {
+        if (dynamic_cast<QMouseEvent *>(event)->button() == Qt::RightButton) {
+            auto *image = getSelectedImage();
+            scene->addItem(new QGraphicsPixmapItem(*image));
+        }
+    }
     if (event->type() == QEvent::Gesture)
         return gestureEvent(dynamic_cast<QGestureEvent *>(event));
     if (event->type() == QEvent::NativeGesture)
@@ -205,17 +203,112 @@ const bool ImageWindow::hasSelection() const {
     return scene->getSelection() != nullptr;
 }
 
-void ImageWindow::copy() {
+void ImageWindow::drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const {
+    int x0 = p0.x(), y0 = p0.y(), x1 = p1.x(), y1 = p1.y();
+    int dx = x1 - x0, dy = y1 - y0, inc = 1;
+    if (dx == 0 && dy == 0) {
+        mat(x0, y0) = true;
+    } else if (std::abs(dy) > std::abs(dx)) {
+        if (dy < 0) {
+            std::swap(x0, x1), std::swap(y0, y1);
+            dx = -dx, dy = -dy;
+        }
+        if (dx < 0) {
+            inc = -1;
+            dx = abs(dx);
+        }
+        int x = 0, y = y0;
+        float e = -0.5f, k = (float)dx / dy;
+        for (int i = 0; i <= dy; ++i) {
+            mat(x + x0, y) = true;
+            ++y, e += k;
+            if (e >= 0.0) x += inc, e -= 1.0;
+        }
+    } else {
+        if (dx < 0) {
+            std::swap(x0, x1), std::swap(y0, y1);
+            dx = -dx, dy = -dy;
+        }
+        if (dy < 0) {
+            inc = -1;
+            dy = abs(dy);
+        }
+        int x = x0, y = 0;
+        float e = -0.5f, k = (float)dy / dx;
+        for (int i = 0; i <= dx; ++i) {
+            mat(x, y + y0) = true;
+            ++x, e += k;
+            if (e >= 0.0) y += inc, e -= 1.0;
+        }
+    }
+}
+
+const QPixmap * ImageWindow::getSelectedImage() {
     auto *path = scene->getSelection();
-    if (path == nullptr) return;
-}
+    if (path == nullptr) return nullptr;
+    if (path == selectionPath) return &selectedImage; // using cached image
 
-void ImageWindow::paste() {
+    // minimum containing integer bounding rect
+    QPoint topLeft = QPoint(qFloor(path->boundingRect().x()), qFloor(path->boundingRect().y()));
+    QPoint bottomRight = QPoint(qCeil(path->boundingRect().right()), qCeil(path->boundingRect().bottom()));
+    QRect boundingRect = QRect(topLeft.x(), topLeft.y(), bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
+    // simplified path has already removed all inner crossings
+    utils::BitMatrix alphaMat(boundingRect.width(), boundingRect.height());
+    for (int i = 0; i < path->elementCount(); ++i) {
+        QPoint p0 = ((QPointF)path->elementAt(i)).toPoint() - boundingRect.topLeft();
+        QPoint p1 = ((QPointF)path->elementAt((i + 1) % path->elementCount())).toPoint() - boundingRect.topLeft();
+        drawLineBresenham(alphaMat, p0, p1); // rasterize boundary with Bresenham's algorithm
+    }
 
-}
+    auto image = QImage(boundingRect.size(), QImage::Format_RGB32);
+    for (int i = 0; i < boundingRect.width(); ++i)
+        for (int j = 0; j < boundingRect.height(); ++j)
+            image.setPixelColor(i, j, alphaMat(i, j) ? Qt::red : Qt::black);
 
-void ImageWindow::cut() {
+    // fill in the inner parts
+    const QPoint dir[4] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}}; // 4-connected
+    auto isValid = [&](const QPoint &p) {
+        return 0 <= p.x() && p.x() < boundingRect.width() && 0 <= p.y() && p.y() < boundingRect.height();
+    };
+    utils::BitMatrix visited = alphaMat;
+    for (int i = 0; i < boundingRect.width(); ++i)
+        for (int j = 0; j < boundingRect.height(); ++j) {
+            if (visited(i, j)) continue;
+            std::vector<QPoint> queue;
+            visited(i, j) = true;
+            queue.emplace_back(i, j);
+            bool isInner = true;
+            int head = 0;
+            while (head < queue.size()) {
+                QPoint p = queue[head++];
+                for (auto &d : dir) {
+                    QPoint np = p + d;
+                    if (!isValid(np)) isInner = false;
+                    else if (!visited(np)) {
+                        visited(np) = true;
+                        queue.push_back(np);
+                    }
+                }
+            }
+            // inner pixels are those that cannot reach the edge of the bounding rect
+            if (isInner) {
+                for (auto &p : queue)
+                    alphaMat(p) = true;
+            }
+        }
 
+//    for (int i = 0; i < boundingRect.width(); ++i)
+//        for (int j = 0; j < boundingRect.height(); ++j)
+//            if (image.pixelColor(i, j) == Qt::black)
+//                image.setPixelColor(i, j, alphaMat(i, j) ? Qt::white : Qt::black);
+
+    selectedImage = originalImage.copy(boundingRect);
+    auto mask = QBitmap::fromData(boundingRect.size(), alphaMat.toBytes(), QImage::Format_MonoLSB);
+//    selectedImage = QPixmap::fromImage(mask.toImage());
+    selectedImage.setMask(mask);
+//    selectedImage = QPixmap::fromImage(image);
+
+    return &selectedImage;
 }
 
 /*

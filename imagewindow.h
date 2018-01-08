@@ -4,6 +4,7 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include "utils.h"
 
 class ImageScene : public QGraphicsScene {
 Q_OBJECT
@@ -11,7 +12,7 @@ Q_OBJECT
 public:
     ImageScene();
 
-    void setImage(const QImage &image);
+    void setPixmap(const QPixmap &pixmap);
     const QPainterPath *getSelection() const;
 
 protected:
@@ -21,12 +22,12 @@ protected:
 
 private:
     QPointF clampedPoint(const QPointF &point);
-    bool inSelection, hasSelection;
+    bool inSelection = false, hasSelection = false;
     QPainterPath lassoPath;
     QSize imageSize;
 
     QGraphicsPathItem *pathItem;
-    QGraphicsPixmapItem *imageItem;
+    QGraphicsPixmapItem *imageItem = nullptr;
 };
 
 class ImageWindow : public QMainWindow {
@@ -41,9 +42,7 @@ public:
     void showWithSizeHint(QSize parentSize);
 
     const bool hasSelection() const;
-    void copy();
-    void paste();
-    void cut();
+    const QPixmap * getSelectedImage();
 
 private:
     double scale;
@@ -55,17 +54,22 @@ protected:
     bool nativeGestureEvent(QNativeGestureEvent *event); // macOS-specific
 
 private:
+    void drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const;
+
     QSize imageSize;
-    bool inGesture;
+    bool inGesture = false;
     double scaleBeforeGesture;
     double cumulativeScale;
 
     ImageScene *scene;
     QGraphicsView *view;
+    QPixmap originalImage;
 
     QSlider *zoomSlider;
     QLabel *zoomScaleLabel;
 
+    QPixmap selectedImage;
+    QPainterPath *selectionPath = nullptr;
 };
 
 #endif //POISSONEDITOR_IMAGEWINDOW_H
