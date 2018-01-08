@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(graphics)
+project(PoissonEditor)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -53,7 +53,7 @@ elseif (WIN32)
     set(META_FILES)
 endif ()
 
-set(QT_COMPONENTS Core Quick Widgets Gui PrintSupport)
+set(QT_COMPONENTS Core Widgets Gui)
 
 find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
 

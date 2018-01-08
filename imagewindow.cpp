@@ -1,5 +1,4 @@
 #include <QtWidgets>
-#include <QFileInfo>
 
 #if defined(QT_PRINTSUPPORT_LIB)
 //#if QT_CONFIG(printdialog)
@@ -107,14 +106,17 @@ bool ImageWindow::nativeGestureEvent(QNativeGestureEvent *event) {
         }
         cumulativeScale += event->value();
         auto pos = event->localPos();
-        auto targetScenePos = view->viewportTransform().inverted().map(pos);
+        auto targetScenePos = view->mapToScene(event->pos());
         double newScale = scaleBeforeGesture * (1.0 + cumulativeScale);
         setSlider(newScale);
-        view->resetMatrix();
-        view->scale(scale, scale); // use the clamped scale
-        view->centerOn(targetScenePos);
-        auto viewport = QPoint(view->viewport()->width(), view->viewport()->height());
-        view->centerOn(view->viewportTransform().inverted().map(viewport - pos + QPointF(0.2, 0.2))); // buggy, but fuck it
+        if (scale == newScale) {  // scale is not clamped
+            view->resetTransform();
+            view->scale(scale, scale);
+            view->centerOn(targetScenePos);
+            auto deltaViewportPos = event->pos() - QPointF(view->viewport()->width() / 2.0, view->viewport()->height() / 2.0);
+            auto viewportCenter = view->mapFromScene(targetScenePos) - deltaViewportPos;
+            view->centerOn(view->mapToScene(viewportCenter.toPoint()));  // still buggy, but fuck it
+        }
     } else {
         inGesture = false;
     }
@@ -152,8 +154,6 @@ void ImageWindow::showWithSizeHint(QSize parentSize) {
     if (imageSize.height() > parentSize.height() || imageSize.width() > parentSize.width()) {
         view->fitInView(imageItem, Qt::KeepAspectRatio);
         setSlider(view->matrix().m11());
-        view->resetMatrix();
-        view->scale(scale, scale);
         showMaximized();
     } else {
         resize(imageSize);
