@@ -61,7 +61,6 @@ bool MainWindow::openFile(const QString &fileName) {
 bool MainWindow::loadFile(const QString &fileName) {
     ImageWindow *child = createMdiChild();
     const bool succeeded = child->loadFile(fileName);
-    qDebug() << succeeded << fileName;
     if (succeeded) {
         child->showWithSizeHint(mdiArea->size());
     } else child->close();
@@ -168,12 +167,12 @@ void MainWindow::cut() {
 }
 
 void MainWindow::copy() {
-    if (activeMdiChild())
+    if (activeMdiChild() != nullptr)
         clipboard = activeMdiChild()->getSelectedImage();
 }
 
 void MainWindow::paste() {
-    if (activeMdiChild())
+    if (activeMdiChild() != nullptr)
         activeMdiChild()->pastePixmap(clipboard);
 }
 
@@ -201,6 +200,9 @@ void MainWindow::updateMenus() {
 //    copyAct->setEnabled(hasLassoSelection);
     cutAct->setEnabled(hasMdiChild);
     copyAct->setEnabled(hasMdiChild);
+
+//    bool hasPastedPixmaps = (activeMdiChild() && activeMdiChild()->hasPastedPixmaps());
+    fusionAct->setEnabled(hasMdiChild);
 }
 
 void MainWindow::updateWindowMenu() {
@@ -231,6 +233,11 @@ void MainWindow::updateWindowMenu() {
     }
 }
 
+void MainWindow::poissonFusion() {
+    if (activeMdiChild() != nullptr)
+        activeMdiChild()->poissonFusion();
+}
+
 ImageWindow *MainWindow::createMdiChild() {
     auto *child = new ImageWindow(this);
     mdiArea->addSubWindow(child);
@@ -241,6 +248,7 @@ ImageWindow *MainWindow::createMdiChild() {
 void MainWindow::createActions() {
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
     QToolBar *fileToolBar = addToolBar(tr("File"));
+    fileToolBar->setFloatable(false);
 
     const QIcon newIcon = QIcon::fromTheme("document-new", QIcon(":/images/new.png"));
     newAct = new QAction(newIcon, tr("&New"), this);
@@ -297,6 +305,7 @@ void MainWindow::createActions() {
 
     QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
     QToolBar *editToolBar = addToolBar(tr("Edit"));
+    editToolBar->setFloatable(false);
 
     const QIcon cutIcon = QIcon::fromTheme("edit-cut", QIcon(":/images/cut.png"));
     cutAct = new QAction(cutIcon, tr("Cu&t"), this);
@@ -324,6 +333,18 @@ void MainWindow::createActions() {
     connect(pasteAct, &QAction::triggered, this, &MainWindow::paste);
     editMenu->addAction(pasteAct);
     editToolBar->addAction(pasteAct);
+
+    QMenu *operationMenu = menuBar()->addMenu(tr("&Operation"));
+    QToolBar *operationToolBar = addToolBar(tr("Operation"));
+    operationToolBar->setFloatable(false);
+
+    const QIcon fusionIcon = QIcon(":/images/fusion.png");
+    fusionAct = new QAction(fusionIcon, tr("&Fusion"), this);
+    fusionAct->setShortcut({Qt::CTRL + Qt::Key_F});
+    fusionAct->setStatusTip("Start Poisson fusion");
+    connect(fusionAct, &QAction::triggered, this, &MainWindow::poissonFusion);
+    operationMenu->addAction(fusionAct);
+    operationToolBar->addAction(fusionAct);
 
     windowMenu = menuBar()->addMenu(tr("&Window"));
     connect(windowMenu, &QMenu::aboutToShow, this, &MainWindow::updateWindowMenu);

@@ -55,6 +55,8 @@ private:
     ImageWindow *activeMdiChild() const;
     QMdiSubWindow *findMdiChild(const QString &fileName) const;
 
+    void poissonFusion();
+
     QMdiArea *mdiArea;
 
     QPixmap clipboard;
@@ -70,6 +72,8 @@ private:
     QAction *cutAct;
     QAction *copyAct;
     QAction *pasteAct;
+
+    QAction *fusionAct;
 
     QAction *closeAct;
     QAction *closeAllAct;

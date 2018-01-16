@@ -21,6 +21,10 @@ public:
     const QPainterPath *getSelection() const;
     void clearSelection();
     void pastePixmap(const QPixmap &pixmap);
+    const QList<QGraphicsPixmapItem *> &getPastedPixmaps() const;
+    QPixmap getSelectedImage();
+
+    void poissonFusion();
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -28,7 +32,10 @@ protected:
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
 
 private:
+    void drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const;
+
     QPointF clampedPoint(const QPointF &point);
+    QPixmap pixmap;
     QSize imageSize;
     QGraphicsPixmapItem *imageItem = nullptr;
 
@@ -38,12 +45,15 @@ private:
     QPen *pathPen;
     QVariantAnimation *pathBorderAnimation;
 
+    QPixmap selectedImage;
+    QPainterPath *selectionPath = nullptr;
+
     bool inItemSelection = false;
     QGraphicsItem *selectedItem = nullptr;
     QPointF selectionPosDelta;
     QGraphicsRectItem *selectionBox = nullptr;
 
-    QList<QGraphicsPixmapItem *> pixmaps;
+    QList<QGraphicsPixmapItem *> pastedPixmaps;
     float maxZValue = 2.0;
 };
 
@@ -65,8 +75,11 @@ public:
     void showWithSizeHint(QSize parentSize);
 
     const bool hasSelection() const;
+    const bool hasPastedPixmaps() const;
     QPixmap getSelectedImage();
     void pastePixmap(const QPixmap &pixmap);
+
+    void poissonFusion();
 
 private:
     double scale;
@@ -78,8 +91,6 @@ protected:
     bool nativeGestureEvent(QNativeGestureEvent *event); // macOS-specific
 
 private:
-    void drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const;
-
     QSize imageSize;
     bool inGesture = false;
     double scaleBeforeGesture;
@@ -91,9 +102,6 @@ private:
 
     QSlider *zoomSlider;
     QLabel *zoomScaleLabel;
-
-    QPixmap selectedImage;
-    QPainterPath *selectionPath = nullptr;
 };
 
 #endif //POISSONEDITOR_IMAGEWINDOW_H
