@@ -7,14 +7,33 @@
 #endif
 
 #include "imagewindow.h"
-#include "utils.h"
 
 ImageScene::ImageScene() {
     pathItem = new QGraphicsPathItem;
-    pathItem->setPen(QPen(Qt::black, 2, Qt::DashLine));
+    pathPen = new QPen(Qt::black, 2, Qt::DashLine);
+    pathPen->setDashPattern({4.0, 4.0});
+    pathItem->setPen(*pathPen);
+    pathBorderAnimation = new QVariantAnimation();
+    pathBorderAnimation->setStartValue(0.0);
+    pathBorderAnimation->setEndValue(8.0);
+    pathBorderAnimation->setDuration(1000);
+    pathBorderAnimation->setLoopCount(-1);
+    connect(pathBorderAnimation, &QVariantAnimation::valueChanged, [&](const QVariant &value) {
+//        qDebug() << value.toReal();
+        pathPen->setDashOffset(value.toReal());
+        pathItem->setPen(*pathPen);
+    });
+    pathBorderAnimation->start();
     pathItem->setBrush(QBrush(QColor(0, 100, 200, 50))); // half-transparent light blue
-    pathItem->setZValue(100); // put on top of everything else
+    pathItem->setZValue(1); // put on top of everything else
     addItem(pathItem);
+}
+
+ImageScene::~ImageScene() {
+    delete pathBorderAnimation;
+    delete pathPen;
+    delete pathItem;
+    delete imageItem;
 }
 
 void ImageScene::setPixmap(const QPixmap &pixmap) {
@@ -29,7 +48,7 @@ void ImageScene::setPixmap(const QPixmap &pixmap) {
 }
 
 const QPainterPath *ImageScene::getSelection() const {
-    return hasSelection ? &lassoPath : nullptr;
+    return hasLassoSelection ? &lassoPath : nullptr;
 }
 
 QPointF ImageScene::clampedPoint(const QPointF &point) {
@@ -39,29 +58,88 @@ QPointF ImageScene::clampedPoint(const QPointF &point) {
     return pos;
 }
 
+void ImageScene::clearSelection() {
+    // Cancel item selection
+    selectedItem = nullptr;
+    if (selectionBox != nullptr) {
+        removeItem(selectionBox);
+        delete selectionBox;
+        selectionBox = nullptr;
+    }
+    // Clear lasso path
+    lassoPath = QPainterPath();
+    pathItem->setPath(lassoPath);
+}
+
+void ImageScene::pastePixmap(const QPixmap &pixmap) {
+    auto *item = new QGraphicsPixmapItem(pixmap);
+    item->setPos((imageSize.width() - pixmap.width()) / 2, (imageSize.height() - pixmap.height()) / 2);
+    maxZValue += 0.1;
+    item->setZValue(maxZValue);
+    addItem(item);
+    pixmaps.append(item);
+    clearSelection();
+}
+
 void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     if (event->button() == Qt::LeftButton && imageItem != nullptr) {
-        inSelection = true;
-        lassoPath = QPainterPath(clampedPoint(event->scenePos()));
-        lassoPath.setFillRule(Qt::WindingFill);
-        pathItem->setPath(lassoPath);
+        auto *item = itemAt(event->scenePos(), {});
+        if (item == nullptr || item == imageItem || item == pathItem) {
+            // Did not select item, start drawing path
+            inLassoSelection = true;
+            lassoPath = QPainterPath(clampedPoint(event->scenePos()));
+            lassoPath.setFillRule(Qt::WindingFill);
+            pathItem->setPath(lassoPath);
+            // Cancel item selection
+            selectedItem = nullptr;
+            if (selectionBox != nullptr) {
+                removeItem(selectionBox);
+                delete selectionBox;
+                selectionBox = nullptr;
+            }
+        } else {
+            // Selected item, start moving item
+            inItemSelection = true;
+            selectionPosDelta = item->pos() - event->scenePos();
+            if (selectedItem != item) {
+                selectedItem = item;
+                maxZValue += 0.1;
+                item->setZValue(maxZValue);
+                if (selectionBox != nullptr) {
+                    removeItem(selectionBox);
+                    delete selectionBox;
+                }
+                selectionBox = addRect(item->boundingRect(), QPen(Qt::black, 2, Qt::DashLine));
+                selectionBox->setPos(item->pos());
+                selectionBox->setZValue(2.0);
+            }
+            // Clear lasso path
+            lassoPath = QPainterPath();
+            pathItem->setPath(lassoPath);
+        }
     }
 }
 
 void ImageScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
-    if (inSelection) {
+    if (inLassoSelection) {
         lassoPath.lineTo(clampedPoint(event->scenePos()));
         pathItem->setPath(lassoPath);
+    } else if (inItemSelection) {
+        auto pos = event->scenePos() + selectionPosDelta;
+        selectedItem->setPos(pos);
+        selectionBox->setPos(pos);
     }
 }
 
 void ImageScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
-    if (inSelection) {
+    if (inLassoSelection) {
         lassoPath.closeSubpath();
-        lassoPath = lassoPath.simplified();
-        pathItem->setPath(lassoPath);
-        inSelection = false;
-        hasSelection = true;
+//        lassoPath = lassoPath.simplified();
+        pathItem->setPath(lassoPath.simplified());
+        inLassoSelection = false;
+        hasLassoSelection = true;
+    } else if (inItemSelection) {
+        inItemSelection = false;
     }
 }
 
@@ -92,6 +170,13 @@ ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
         view->resetMatrix();
         view->scale(scale, scale);
     });
+}
+
+ImageWindow::~ImageWindow() {
+    delete view;
+    delete scene;
+    delete zoomSlider;
+    delete zoomScaleLabel;
 }
 
 void ImageWindow::setSlider(double scale) {
@@ -131,13 +216,15 @@ bool ImageWindow::loadFile(const QString &filePath) {
 
 bool ImageWindow::event(QEvent *event) {
     if (event->type() == QEvent::MouseButtonPress) {
+        /*
         if (dynamic_cast<QMouseEvent *>(event)->button() == Qt::RightButton) {
             auto *image = getSelectedImage();
             scene->addItem(new QGraphicsPixmapItem(*image));
         }
+         */
     }
-    if (event->type() == QEvent::Gesture)
-        return gestureEvent(dynamic_cast<QGestureEvent *>(event));
+//    if (event->type() == QEvent::Gesture)
+//        return gestureEvent(dynamic_cast<QGestureEvent *>(event));
     if (event->type() == QEvent::NativeGesture)
         return nativeGestureEvent(dynamic_cast<QNativeGestureEvent *>(event));
     inGesture = false;
@@ -162,15 +249,15 @@ bool ImageWindow::nativeGestureEvent(QNativeGestureEvent *event) {
             cumulativeScale = 0.0;
         }
         cumulativeScale += event->value();
-        auto pos = event->localPos();
-        auto targetScenePos = view->mapToScene(event->pos());
+        auto pos = event->pos();
+        auto targetScenePos = view->mapToScene(pos);
         double newScale = scaleBeforeGesture * (1.0 + cumulativeScale);
         setSlider(newScale);
         if (scale == newScale) {  // scale is not clamped
             view->resetTransform();
             view->scale(scale, scale);
             view->centerOn(targetScenePos);
-            auto deltaViewportPos = event->pos() - QPointF(view->viewport()->width() / 2.0, view->viewport()->height() / 2.0);
+            auto deltaViewportPos = pos - QPointF(view->viewport()->width() / 2.0, view->viewport()->height() / 2.0);
             auto viewportCenter = view->mapFromScene(targetScenePos) - deltaViewportPos;
             view->centerOn(view->mapToScene(viewportCenter.toPoint()));  // still buggy, but fuck it
         }
@@ -243,10 +330,10 @@ void ImageWindow::drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1)
     }
 }
 
-const QPixmap * ImageWindow::getSelectedImage() {
+QPixmap ImageWindow::getSelectedImage() {
     auto *path = scene->getSelection();
-    if (path == nullptr) return nullptr;
-    if (path == selectionPath) return &selectedImage; // using cached image
+    if (path == nullptr) return QPixmap(); // null pixmap (pixmap.isNull() == true)
+    if (path == selectionPath) return selectedImage; // using cached image
 
     // minimum containing integer bounding rect
     QPoint topLeft = QPoint(qFloor(path->boundingRect().x()), qFloor(path->boundingRect().y()));
@@ -260,13 +347,18 @@ const QPixmap * ImageWindow::getSelectedImage() {
         drawLineBresenham(alphaMat, p0, p1); // rasterize boundary with Bresenham's algorithm
     }
 
+    /*
     auto image = QImage(boundingRect.size(), QImage::Format_RGB32);
     for (int i = 0; i < boundingRect.width(); ++i)
         for (int j = 0; j < boundingRect.height(); ++j)
             image.setPixelColor(i, j, alphaMat(i, j) ? Qt::red : Qt::black);
+     */
 
     // fill in the inner parts
-    const QPoint dir[4] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}}; // 4-connected
+    const QPoint dir[4] = {{0,  1},
+                           {1,  0},
+                           {0,  -1},
+                           {-1, 0}}; // 4-connected
     auto isValid = [&](const QPoint &p) {
         return 0 <= p.x() && p.x() < boundingRect.width() && 0 <= p.y() && p.y() < boundingRect.height();
     };
@@ -297,18 +389,49 @@ const QPixmap * ImageWindow::getSelectedImage() {
             }
         }
 
-//    for (int i = 0; i < boundingRect.width(); ++i)
-//        for (int j = 0; j < boundingRect.height(); ++j)
-//            if (image.pixelColor(i, j) == Qt::black)
-//                image.setPixelColor(i, j, alphaMat(i, j) ? Qt::white : Qt::black);
+    /*
+    for (int i = 0; i < boundingRect.width(); ++i)
+        for (int j = 0; j < boundingRect.height(); ++j)
+            if (image.pixelColor(i, j) == Qt::black)
+                image.setPixelColor(i, j, alphaMat(i, j) ? Qt::white : Qt::black);
+     */
 
-    selectedImage = originalImage.copy(boundingRect);
-    auto mask = QBitmap::fromData(boundingRect.size(), alphaMat.toBytes(), QImage::Format_MonoLSB);
-//    selectedImage = QPixmap::fromImage(mask.toImage());
-    selectedImage.setMask(mask);
+    /*
+    const int pointSize = 6;
+    std::vector<QGraphicsItem *> items;
+    for (auto *item : scene->items())
+        if (item->type() == QGraphicsTextItem::Type)
+            items.push_back(item);
+    for (auto *item : items)
+        scene->removeItem(item);
+    for (int i = 0; i < path->elementCount(); ++i) {
+        QPoint p0 = ((QPointF)path->elementAt(i)).toPoint() - boundingRect.topLeft();
+        for (int dx = -pointSize / 2; dx <= pointSize / 2; ++dx)
+            for (int dy = -pointSize / 2; dy <= pointSize / 2; ++dy) {
+                QPoint newPoint(p0.x() + dx, p0.y() + dy);
+                if (isValid(newPoint))
+                    image.setPixelColor(newPoint.x(), newPoint.y(), Qt::green);
+            }
+        auto *text = new QGraphicsTextItem(QStringLiteral("%1").arg(i));
+        text->setPos(p0);
+        text->setZValue(100);
+        text->setDefaultTextColor(Qt::yellow);
+        scene->addItem(text);
+    }
+     */
+
 //    selectedImage = QPixmap::fromImage(image);
 
-    return &selectedImage;
+    auto mask = QBitmap::fromData(boundingRect.size(), alphaMat.toBytes(), QImage::Format_MonoLSB);
+    selectedImage = originalImage.copy(boundingRect);
+    selectedImage.setMask(mask);
+//    selectedImage = QPixmap::fromImage(mask.toImage());
+
+    return selectedImage;
+}
+
+void ImageWindow::pastePixmap(const QPixmap &pixmap) {
+    scene->pastePixmap(pixmap);
 }
 
 /*

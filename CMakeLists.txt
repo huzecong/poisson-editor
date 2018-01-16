@@ -14,7 +14,7 @@ set(SOURCE_FILES
 # Add the path to the Qt installation/files
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/local/opt/qt/")
 
-set(CXX_FLAGS "-DQT_NO_CLIPBOARD")
+#set(CXX_FLAGS "-DQT_NO_CLIPBOARD")
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${CXX_FLAGS})
 

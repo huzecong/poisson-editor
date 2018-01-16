@@ -11,9 +11,16 @@ Q_OBJECT
 
 public:
     ImageScene();
+    ~ImageScene();
+    ImageScene(const ImageScene &) = delete;
+    ImageScene(ImageScene &&) = delete;
+    ImageScene &operator =(const ImageScene &) = delete;
+    ImageScene &operator =(ImageScene &&) = delete;
 
     void setPixmap(const QPixmap &pixmap);
     const QPainterPath *getSelection() const;
+    void clearSelection();
+    void pastePixmap(const QPixmap &pixmap);
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -22,12 +29,22 @@ protected:
 
 private:
     QPointF clampedPoint(const QPointF &point);
-    bool inSelection = false, hasSelection = false;
-    QPainterPath lassoPath;
     QSize imageSize;
-
-    QGraphicsPathItem *pathItem;
     QGraphicsPixmapItem *imageItem = nullptr;
+
+    bool inLassoSelection = false, hasLassoSelection = false;
+    QPainterPath lassoPath;
+    QGraphicsPathItem *pathItem;
+    QPen *pathPen;
+    QVariantAnimation *pathBorderAnimation;
+
+    bool inItemSelection = false;
+    QGraphicsItem *selectedItem = nullptr;
+    QPointF selectionPosDelta;
+    QGraphicsRectItem *selectionBox = nullptr;
+
+    QList<QGraphicsPixmapItem *> pixmaps;
+    float maxZValue = 2.0;
 };
 
 class ImageWindow : public QMainWindow {
@@ -35,6 +52,12 @@ Q_OBJECT
 
 public:
     explicit ImageWindow(QWidget *parent);
+    ~ImageWindow();
+    ImageWindow(const ImageWindow &) = delete;
+    ImageWindow(ImageWindow &&) = delete;
+    ImageWindow &operator =(const ImageWindow &) = delete;
+    ImageWindow &operator =(ImageWindow &&) = delete;
+
     bool loadFile(const QString &filePath);
     const QString currentFile() const;
     const QString currentFileName() const;
@@ -42,7 +65,8 @@ public:
     void showWithSizeHint(QSize parentSize);
 
     const bool hasSelection() const;
-    const QPixmap * getSelectedImage();
+    QPixmap getSelectedImage();
+    void pastePixmap(const QPixmap &pixmap);
 
 private:
     double scale;

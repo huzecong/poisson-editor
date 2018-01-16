@@ -140,6 +140,14 @@ void MainWindow::openRecentFile() {
         openFile(action->data().toString());
 }
 
+void MainWindow::tileWindows() {
+    mdiArea->tileSubWindows();
+}
+
+void MainWindow::cascadeWindows() {
+    mdiArea->cascadeSubWindows();
+}
+
 void MainWindow::save() {
 //    if (activeMdiChild() && activeMdiChild()->save())
 //        statusBar()->showMessage(tr("File saved"), 2000);
@@ -153,24 +161,21 @@ void MainWindow::saveAs() {
 //    }
 }
 
-#ifndef QT_NO_CLIPBOARD
-
 void MainWindow::cut() {
-    if (activeMdiChild())
-        activeMdiChild()->cut();
+    QMessageBox::warning(this, "Not Implemented", "Not Implemented!");
+//    if (activeMdiChild())
+//        activeMdiChild()->cut();
 }
 
 void MainWindow::copy() {
     if (activeMdiChild())
-        activeMdiChild()->copy();
+        clipboard = activeMdiChild()->getSelectedImage();
 }
 
 void MainWindow::paste() {
     if (activeMdiChild())
-        activeMdiChild()->paste();
+        activeMdiChild()->pastePixmap(clipboard);
 }
-
-#endif
 
 void MainWindow::about() {
     QMessageBox::about(this, tr("About MDI"),
@@ -182,9 +187,7 @@ void MainWindow::updateMenus() {
     bool hasMdiChild = (activeMdiChild() != nullptr);
     saveAct->setEnabled(hasMdiChild);
     saveAsAct->setEnabled(hasMdiChild);
-#ifndef QT_NO_CLIPBOARD
     pasteAct->setEnabled(hasMdiChild);
-#endif
     closeAct->setEnabled(hasMdiChild);
     closeAllAct->setEnabled(hasMdiChild);
     tileAct->setEnabled(hasMdiChild);
@@ -193,11 +196,11 @@ void MainWindow::updateMenus() {
     previousAct->setEnabled(hasMdiChild);
     windowMenuSeparatorAct->setVisible(hasMdiChild);
 
-#ifndef QT_NO_CLIPBOARD
-    bool hasSelection = (activeMdiChild() && activeMdiChild()->getSelection());
-    cutAct->setEnabled(hasSelection);
-    copyAct->setEnabled(hasSelection);
-#endif
+//    bool hasLassoSelection = (activeMdiChild() && activeMdiChild()->hasLassoSelection());
+//    cutAct->setEnabled(hasLassoSelection);
+//    copyAct->setEnabled(hasLassoSelection);
+    cutAct->setEnabled(hasMdiChild);
+    copyAct->setEnabled(hasMdiChild);
 }
 
 void MainWindow::updateWindowMenu() {
@@ -231,11 +234,6 @@ void MainWindow::updateWindowMenu() {
 ImageWindow *MainWindow::createMdiChild() {
     auto *child = new ImageWindow(this);
     mdiArea->addSubWindow(child);
-
-#ifndef QT_NO_CLIPBOARD
-    connect(child, &QTextEdit::copyAvailable, cutAct, &QAction::setEnabled);
-    connect(child, &QTextEdit::copyAvailable, copyAct, &QAction::setEnabled);
-#endif
 
     return child;
 }
@@ -297,7 +295,6 @@ void MainWindow::createActions() {
     exitAct->setStatusTip(tr("Exit the application"));
     fileMenu->addAction(exitAct);
 
-#ifndef QT_NO_CLIPBOARD
     QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
     QToolBar *editToolBar = addToolBar(tr("Edit"));
 
@@ -327,7 +324,6 @@ void MainWindow::createActions() {
     connect(pasteAct, &QAction::triggered, this, &MainWindow::paste);
     editMenu->addAction(pasteAct);
     editToolBar->addAction(pasteAct);
-#endif
 
     windowMenu = menuBar()->addMenu(tr("&Window"));
     connect(windowMenu, &QMenu::aboutToShow, this, &MainWindow::updateWindowMenu);
