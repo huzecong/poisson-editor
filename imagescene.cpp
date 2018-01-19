@@ -117,6 +117,7 @@ void ImageScene::poissonFusion() {
     }
     auto fusedImage = ImageMagic::poissonFusion(originalImage, image, mask); // pixmap should not be used because of its mask
     pixmap = QPixmap::fromImage(fusedImage);
+    originalImage = fusedImage; // so as to allow fusion for multiple times
 
     // Clear all pasted patches & mask
     bgAlpha->fill1();
@@ -124,11 +125,30 @@ void ImageScene::poissonFusion() {
         removeItem(item);
     pastedPixmaps.clear();
     imageItem->setPixmap(pixmap);
-    originalImage = pixmap.toImage(); // so as to allow fusion for multiple times
 }
 
 void ImageScene::smartFill() {
+    clearSelection();
 
+    auto image = pixmap.toImage();
+    BitMatrix bitmat(image.width(), image.height());
+    for (int i = 0; i < image.width(); ++i)
+        for (int j = 0; j < image.height(); ++j) {
+            auto color = image.pixelColor(i, j);
+            if (color.red() == 0 && color.green() == 0 && color.blue() == 0)
+                bitmat(i, j) = true;
+        }
+    bitmat.invert();
+
+    auto filledImage = ImageMagic::smartFill(image, bitmat);
+//    auto filledImage = ImageMagic::smartFill(pixmap.toImage(), *bgAlpha);
+//    auto filledImage = QBitmap::fromData(pixmap.size(), bitmat.toBytes(), QImage::Format_MonoLSB).toImage();
+//    auto filledImage = image;
+    pixmap = QPixmap::fromImage(filledImage);
+    originalImage = filledImage;
+
+    bgAlpha->fill1();
+    imageItem->setPixmap(pixmap);
 }
 
 void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {

@@ -23,13 +23,13 @@ BitMatrix::BitMatrix(const utils::Matrix<bool> &mat)
 
 void BitMatrix::fill1() {
     memset(arr, (1 << (bitMask + 1)) - 1, sizeof(uchar) * (m_bits * n));
-    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask)) - 1);
+    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask) + 1) - 1);
     for (int y = 0; y < m_bits; ++y)
         arr[y * n + n - 1] = bitMaskEOL;
 }
 
 void BitMatrix::invert() {
-    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask)) - 1);
+    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask) + 1) - 1);
     for (int i = 0; i < m_bits * n; ++i)
         arr[i] = ~arr[i];
 //    for (int y = 0; y < m_bits; ++y)

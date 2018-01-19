@@ -70,10 +70,11 @@ find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
 qt5_add_resources(RESOURCE_FILES graphics.qrc)
 
 find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
+find_package(OpenCV REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIR})
 
 add_executable(${PROJECT_NAME} ${OS_BUNDLE} ${SOURCE_FILES} ${META_FILES} ${RESOURCE_FILES})
 
 qt5_use_modules(${PROJECT_NAME} ${QT_COMPONENTS})
 
-#target_link_libraries(${PROJECT_NAME} Eigen3)
+target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})

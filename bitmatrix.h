@@ -59,6 +59,15 @@ public:
         return {this, x, y};
     }
 
+    inline const bool operator ()(const QPoint &p) const {
+        return operator ()(p.x(), p.y());
+    }
+
+    inline const bool operator ()(int x, int y) const {
+        assert(0 <= x && x < n_bits && 0 <= y && y < m_bits);
+        return get(x, y);
+    }
+
     inline const uchar *toBytes() const {
         return arr;
     }

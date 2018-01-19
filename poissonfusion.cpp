@@ -9,37 +9,9 @@
 #include <Eigen/SparseCholesky>
 #include <Eigen/IterativeLinearSolvers>
 
-static const int dir[4][2] = {{0,  1},
-                              {1,  0},
-                              {0,  -1},
-                              {-1, 0}};
 
 typedef float Float;
 typedef Eigen::VectorXf Vector;
-
-struct Color {
-    int col[3];
-
-    Color() { memset(col, 0, sizeof col); }
-
-    Color(int r, int g, int b) {
-        col[0] = r, col[1] = g, col[2] = b;
-    }
-
-    inline void operator +=(const Color &rhs) {
-        col[0] += rhs.col[0];
-        col[1] += rhs.col[1];
-        col[2] += rhs.col[2];
-    }
-
-    inline Color operator +(const Color &rhs) {
-        return {col[0] + rhs.col[0], col[1] + rhs.col[1], col[2] + rhs.col[2]};
-    }
-
-    inline Color operator -(const Color &rhs) {
-        return {col[0] - rhs.col[0], col[1] - rhs.col[1], col[2] - rhs.col[2]};
-    }
-};
 
 QImage ImageMagic::poissonFusion(const QImage &originalImage, const QImage &image, const QImage &mask) {
     int n = image.size().width(), m = image.size().height();
@@ -101,8 +73,7 @@ QImage ImageMagic::poissonFusion(const QImage &originalImage, const QImage &imag
     for (int ch = 0; ch < 3; ++ch)
         bs.emplace_back(n_vars);
     auto color = [](const QImage &img, int x, int y) {
-        auto col = img.pixelColor(x, y);
-        return Color(col.red(), col.green(), col.blue());
+        return Color(img.pixelColor(x, y));
     };
 
     timer.restart();
@@ -129,8 +100,8 @@ QImage ImageMagic::poissonFusion(const QImage &originalImage, const QImage &imag
                     return image;
                 }
                 for (int ch = 0; ch < 3; ++ch) {
-                    float gradOrig = origColor.col[ch] - origNeighborColor.col[ch];
-                    float gradPatch = patchColor.col[ch] - patchNeighborColor.col[ch];
+                    int gradOrig = origColor.col[ch] - origNeighborColor.col[ch];
+                    int gradPatch = patchColor.col[ch] - patchNeighborColor.col[ch];
                     val.col[ch] += std::abs(gradOrig) > std::abs(gradPatch) ? gradOrig : gradPatch;
                 }
             }

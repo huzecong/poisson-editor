@@ -38,6 +38,14 @@ namespace utils {
             memset(arr, 0, sizeof(T) * n * m);
         }
 
+        inline const int rows() const {
+            return n;
+        }
+
+        inline const int cols() const {
+            return m;
+        }
+
         Matrix(const Matrix &mat) {
             n = mat.n, m = mat.m;
             arr = new T[n * m];
