@@ -1,7 +1,3 @@
-//
-// Created by Kanari on 2018/1/19.
-//
-
 #ifndef POISSONEDITOR_BITMATRIX_H
 #define POISSONEDITOR_BITMATRIX_H
 
@@ -52,7 +48,7 @@ public:
     inline BitMatrix(int n, int m)
             : utils::Matrix<uchar>((n + bitMask) >> logBits, m), n_bits(n), m_bits(m) {}
 
-    BitMatrix(const Matrix<bool> &mat);
+    BitMatrix(const utils::Matrix<bool> &mat);
 
     inline BitAccessor operator ()(const QPoint &p) {
         return operator ()(p.x(), p.y());
@@ -67,7 +63,11 @@ public:
         return arr;
     }
 
-    void pasteSubMatrix(const BitMatrix &mat, int offsetX, int offsetY);
+    void fill1();
+    void invert();
+
+    void subMatrixAnd(const BitMatrix &mat, int offsetX, int offsetY);
+    void subMatrixOr(const BitMatrix &mat, int offsetX, int offsetY);
 };
 
 

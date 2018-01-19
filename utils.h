@@ -1,7 +1,3 @@
-//
-// Created by Kanari on 2018/1/9.
-//
-
 #ifndef POISSONEDITOR_UTILS_H
 #define POISSONEDITOR_UTILS_H
 

@@ -1,7 +1,3 @@
-//
-// Created by Kanari on 2018/1/19.
-//
-
 #include "bitmatrix.h"
 
 BitMatrix::BitMatrix(const utils::Matrix<bool> &mat)
@@ -25,7 +21,46 @@ BitMatrix::BitMatrix(const utils::Matrix<bool> &mat)
     }
 }
 
-void BitMatrix::pasteSubMatrix(const BitMatrix &mat, int offsetX, int offsetY) {
+void BitMatrix::fill1() {
+    memset(arr, (1 << (bitMask + 1)) - 1, sizeof(uchar) * (m_bits * n));
+    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask)) - 1);
+    for (int y = 0; y < m_bits; ++y)
+        arr[y * n + n - 1] = bitMaskEOL;
+}
+
+void BitMatrix::invert() {
+    auto bitMaskEOL = static_cast<uchar>((1 << ((n_bits - 1) & bitMask)) - 1);
+    for (int i = 0; i < m_bits * n; ++i)
+        arr[i] = ~arr[i];
+//    for (int y = 0; y < m_bits; ++y)
+//        arr[y * n + n - 1] &= bitMaskEOL;
+}
+
+void BitMatrix::subMatrixAnd(const BitMatrix &mat, int offsetX, int offsetY) {
+    assert(mat.m_bits + offsetY <= m_bits && mat.n_bits + offsetX <= n_bits);
+    assert(offsetX >= 0 && offsetY >= 0);
+    int blocks = offsetX >> logBits, bits = offsetX & bitMask;
+    if (bits == 0) {
+        for (int y = 0; y < mat.m_bits; ++y) {
+            int st = (y + offsetY) * n + blocks, matSt = y * mat.n;
+            for (int x = 0; x < mat.n; ++x)
+                arr[st + x] &= mat.arr[matSt + x];
+        }
+    } else {
+        auto fullMask = static_cast<uchar>((1 << (bitMask + 1)) - 1);
+        uchar maskLo = ~(fullMask << bits);
+        uchar maskHi = ~(fullMask >> (bitMask + 1 - bits));
+        for (int y = 0; y < mat.m_bits; ++y) {
+            int st = (y + offsetY) * n + blocks, matSt = y * mat.n;
+            for (int x = 0; x < mat.n; ++x) {
+                arr[st + x] &= maskLo | (mat.arr[matSt + x] << bits);
+                arr[st + x + 1] &= maskHi | (mat.arr[matSt + x] >> (bitMask + 1 - bits));
+            }
+        }
+    }
+}
+
+void BitMatrix::subMatrixOr(const BitMatrix &mat, int offsetX, int offsetY) {
     assert(mat.m_bits + offsetY <= m_bits && mat.n_bits + offsetX <= n_bits);
     assert(offsetX >= 0 && offsetY >= 0);
     int blocks = offsetX >> logBits, bits = offsetX & bitMask;

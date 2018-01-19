@@ -1,7 +1,3 @@
-//
-// Created by Kanari on 2018/1/19.
-//
-
 #ifndef POISSONEDITOR_IMAGESCENE_H
 #define POISSONEDITOR_IMAGESCENE_H
 
@@ -33,6 +29,7 @@ public:
     QPixmap getSelectedImage();
 
     void poissonFusion();
+    void smartFill();
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;

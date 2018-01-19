@@ -8,5 +8,6 @@
         <file>images/paste.png</file>
         <file>images/save.png</file>
         <file>images/fusion.png</file>
+        <file>images/smart_fill.png</file>
     </qresource>
 </RCC>

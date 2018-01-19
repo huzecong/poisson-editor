@@ -168,6 +168,10 @@ void ImageWindow::poissonFusion() {
     scene->poissonFusion();
 }
 
+void ImageWindow::smartFill() {
+    scene->smartFill();
+}
+
 /*
 bool ImageWindow::saveFile(const QString &fileName) {
     QImageWriter writer(fileName);

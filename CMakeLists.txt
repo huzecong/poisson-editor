@@ -14,8 +14,9 @@ set(SOURCE_FILES
         imagewindow.cpp
         imagescene.h
         imagescene.cpp
-        poissonsolver.h
-        poissonsolver.cpp)
+        imagemagic.h
+        poissonfusion.cpp
+        smartfill.cpp)
 
 # Add the path to the Qt installation/files
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/local/opt/qt/")

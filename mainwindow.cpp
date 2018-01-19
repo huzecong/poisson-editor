@@ -208,6 +208,7 @@ void MainWindow::updateMenus() {
 
 //    bool hasPastedPixmaps = (activeMdiChild() && activeMdiChild()->hasPastedPixmaps());
     fusionAct->setEnabled(hasMdiChild);
+    smartFillAct->setEnabled(hasMdiChild);
 }
 
 void MainWindow::updateWindowMenu() {
@@ -241,6 +242,11 @@ void MainWindow::updateWindowMenu() {
 void MainWindow::poissonFusion() {
     if (activeMdiChild() != nullptr)
         activeMdiChild()->poissonFusion();
+}
+
+void MainWindow::smartFill() {
+    if (activeMdiChild() != nullptr)
+        activeMdiChild()->smartFill();
 }
 
 ImageWindow *MainWindow::createMdiChild() {
@@ -344,12 +350,20 @@ void MainWindow::createActions() {
     operationToolBar->setFloatable(false);
 
     const QIcon fusionIcon = QIcon(":/images/fusion.png");
-    fusionAct = new QAction(fusionIcon, tr("&Fusion"), this);
-    fusionAct->setShortcut({Qt::CTRL + Qt::Key_F});
+    fusionAct = new QAction(fusionIcon, tr("F&usion"), this);
+    fusionAct->setShortcut({Qt::CTRL + Qt::Key_U});
     fusionAct->setStatusTip("Start Poisson fusion");
     connect(fusionAct, &QAction::triggered, this, &MainWindow::poissonFusion);
     operationMenu->addAction(fusionAct);
     operationToolBar->addAction(fusionAct);
+
+    const QIcon smartFillIcon = QIcon(":/images/smart_fill.png");
+    smartFillAct = new QAction(smartFillIcon, tr("Smart &Fill"), this);
+    smartFillAct->setShortcut({Qt::CTRL + Qt::Key_F});
+    smartFillAct->setStatusTip("Start smart fill");
+    connect(smartFillAct, &QAction::triggered, this, &MainWindow::smartFill);
+    operationMenu->addAction(smartFillAct);
+    operationToolBar->addAction(smartFillAct);
 
     windowMenu = menuBar()->addMenu(tr("&Window"));
     connect(windowMenu, &QMenu::aboutToShow, this, &MainWindow::updateWindowMenu);

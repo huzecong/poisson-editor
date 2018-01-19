@@ -1,9 +1,5 @@
-//
-// Created by Kanari on 2018/1/19.
-//
-
 #include "imagescene.h"
-#include "poissonsolver.h"
+#include "imagemagic.h"
 
 ImageScene::ImageScene() {
     pathItem = new QGraphicsPathItem;
@@ -49,6 +45,7 @@ void ImageScene::setPixmap(const QPixmap &pixmap) {
     addItem(imageItem);
 
     bgAlpha = new BitMatrix(imageSize.width(), imageSize.height());
+    bgAlpha->fill1();
 }
 
 const QPainterPath *ImageScene::getSelection() const {
@@ -118,13 +115,20 @@ void ImageScene::poissonFusion() {
         patch.setMask(item->pixmap().mask());
         maskPainter.drawPixmap(item->pos(), patch);
     }
-    auto fusedImage = PoissonSolver::poissonFusion(originalImage, image, mask);
+    auto fusedImage = ImageMagic::poissonFusion(originalImage, image, mask); // pixmap should not be used because of its mask
     pixmap = QPixmap::fromImage(fusedImage);
 
+    // Clear all pasted patches & mask
+    bgAlpha->fill1();
     for (auto *item : pastedPixmaps)
         removeItem(item);
     pastedPixmaps.clear();
     imageItem->setPixmap(pixmap);
+    originalImage = pixmap.toImage(); // so as to allow fusion for multiple times
+}
+
+void ImageScene::smartFill() {
+
 }
 
 void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
@@ -325,9 +329,10 @@ void ImageScene::eraseLassoSelection() {
     auto *path = getSelection();
     auto boundingRect = utils::toAlignedRect(path->boundingRect());
     auto bitMatrix = getMaskFromPath(*path);
-    bgAlpha->pasteSubMatrix(bitMatrix, boundingRect.x(), boundingRect.y());
+    bitMatrix.invert();
+    bgAlpha->subMatrixAnd(bitMatrix, boundingRect.x(), boundingRect.y());
     auto mask = QBitmap::fromData(imageSize, bgAlpha->toBytes(), QImage::Format_MonoLSB);
-//    pixmap.setMask(mask);
-    pixmap = QPixmap::fromImage(mask.toImage());
+    pixmap.setMask(mask);
     imageItem->setPixmap(pixmap);
+    clearSelection();
 }

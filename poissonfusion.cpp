@@ -1,10 +1,6 @@
-//
-// Created by Kanari on 2018/1/19.
-//
-
 #include <functional>
 
-#include "poissonsolver.h"
+#include "imagemagic.h"
 #include "utils.h"
 
 #include <QtCore>
@@ -13,10 +9,10 @@
 #include <Eigen/SparseCholesky>
 #include <Eigen/IterativeLinearSolvers>
 
-const int dir[4][2] = {{0,  1},
-                       {1,  0},
-                       {0,  -1},
-                       {-1, 0}};
+static const int dir[4][2] = {{0,  1},
+                              {1,  0},
+                              {0,  -1},
+                              {-1, 0}};
 
 typedef float Float;
 typedef Eigen::VectorXf Vector;
@@ -30,20 +26,28 @@ struct Color {
         col[0] = r, col[1] = g, col[2] = b;
     }
 
-    inline void operator += (const Color &rhs) {
+    inline void operator +=(const Color &rhs) {
         col[0] += rhs.col[0];
         col[1] += rhs.col[1];
         col[2] += rhs.col[2];
     }
+
+    inline Color operator +(const Color &rhs) {
+        return {col[0] + rhs.col[0], col[1] + rhs.col[1], col[2] + rhs.col[2]};
+    }
+
+    inline Color operator -(const Color &rhs) {
+        return {col[0] - rhs.col[0], col[1] - rhs.col[1], col[2] - rhs.col[2]};
+    }
 };
 
-QImage PoissonSolver::poissonFusion(const QImage &originalImage, const QImage &image, const QImage &mask) {
+QImage ImageMagic::poissonFusion(const QImage &originalImage, const QImage &image, const QImage &mask) {
     int n = image.size().width(), m = image.size().height();
     auto isValid = [n, m](int x, int y) {
         return x >= 0 && x < n && y >= 0 && y < m;
     };
 
-    qDebug() << "PoissonSolver::poissonFusion perf";
+    qDebug() << "ImageMagic::poissonFusion perf";
     QElapsedTimer timer;
     timer.start();
 
@@ -104,7 +108,7 @@ QImage PoissonSolver::poissonFusion(const QImage &originalImage, const QImage &i
     timer.restart();
     for (int p = 0; p < n_vars; ++p) {
         int i = coordinates[p].x(), j = coordinates[p].y();
-        auto maskVal = mask.pixel(i, j);
+        auto maskVal = mask.pixelColor(i, j).value();
         Color val;
         auto origColor = color(originalImage, i, j);
         auto patchColor = color(image, i, j);
@@ -113,11 +117,17 @@ QImage PoissonSolver::poissonFusion(const QImage &originalImage, const QImage &i
             if (!isValid(x, y)) continue;
             auto origNeighborColor = color(originalImage, x, y);
             auto patchNeighborColor = color(image, x, y);
-            if (mask.pixel(x, y) != maskVal) {
+//            if (mask.pixel(x, y) != maskVal) {
+            if (mask.pixelColor(x, y).value() == 0) {
                 // border pixel
                 // val += origNeighborColor; + origColor - origNeighborColor;
                 val += origColor;
+//                val += patchNeighborColor + origColor - origNeighborColor;
             } else {
+                if (mask.pixelColor(x, y).value() != maskVal) {
+                    qDebug() << "ImageMagic::poissonfusion : Unmasked parts of patches overlap, falling back to naive copy-paste.";
+                    return image;
+                }
                 for (int ch = 0; ch < 3; ++ch) {
                     float gradOrig = origColor.col[ch] - origNeighborColor.col[ch];
                     float gradPatch = patchColor.col[ch] - patchNeighborColor.col[ch];

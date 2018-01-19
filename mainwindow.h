@@ -56,6 +56,7 @@ private:
     QMdiSubWindow *findMdiChild(const QString &fileName) const;
 
     void poissonFusion();
+    void smartFill();
 
     QMdiArea *mdiArea;
 
@@ -74,6 +75,7 @@ private:
     QAction *pasteAct;
 
     QAction *fusionAct;
+    QAction *smartFillAct;
 
     QAction *closeAct;
     QAction *closeAllAct;

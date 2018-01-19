@@ -31,6 +31,7 @@ public:
     void pastePixmap(const QPixmap &pixmap);
 
     void poissonFusion();
+    void smartFill();
 
 private:
     double scale = 1.0;
