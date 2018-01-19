@@ -9,10 +9,15 @@ set(SOURCE_FILES
         mainwindow.h
         mainwindow.cpp
         imagewindow.h
-        imagewindow.cpp)
+        imagewindow.cpp
+        imagescene.h
+        imagescene.cpp
+        poissonsolver.h
+        poissonsolver.cpp)
 
 # Add the path to the Qt installation/files
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/local/opt/qt/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 #set(CXX_FLAGS "-DQT_NO_CLIPBOARD")
 
@@ -57,11 +62,15 @@ elseif (WIN32)
 endif ()
 
 set(QT_COMPONENTS Core Widgets Gui)
-
 find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
 
 qt5_add_resources(RESOURCE_FILES graphics.qrc)
 
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
 add_executable(${PROJECT_NAME} ${OS_BUNDLE} ${SOURCE_FILES} ${META_FILES} ${RESOURCE_FILES})
 
 qt5_use_modules(${PROJECT_NAME} ${QT_COMPONENTS})
+
+#target_link_libraries(${PROJECT_NAME} Eigen3)
