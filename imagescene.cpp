@@ -141,10 +141,10 @@ void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
             }
         } else {
             // Selected item, start moving item
-            inItemSelection = true;
+            inItemMovement = true;
             selectionPosDelta = item->pos() - event->scenePos();
-            if (selectedItem != item) {
-                selectedItem = item;
+            if (item->type() != QGraphicsRectItem::Type && selectedItem != item) {
+                selectedItem = dynamic_cast<QGraphicsPixmapItem *>(item);
                 maxZValue += 0.1;
                 item->setZValue(maxZValue);
                 if (selectionBox != nullptr) {
@@ -152,8 +152,9 @@ void ImageScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
                     delete selectionBox;
                 }
                 selectionBox = addRect(item->boundingRect(), QPen(Qt::black, 2, Qt::DashLine));
+                selectionBox->setAcceptedMouseButtons(0);
                 selectionBox->setPos(item->pos());
-                selectionBox->setZValue(2.0);
+                selectionBox->setZValue(maxZValue);
             }
             // Clear lasso path
             lassoPath = QPainterPath();
@@ -166,7 +167,7 @@ void ImageScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
     if (inLassoSelection) {
         lassoPath.lineTo(clampedPoint(event->scenePos()));
         pathItem->setPath(lassoPath);
-    } else if (inItemSelection) {
+    } else if (inItemMovement) {
         auto pos = event->scenePos() + selectionPosDelta;
         selectedItem->setPos(pos);
         selectionBox->setPos(pos);
@@ -180,8 +181,24 @@ void ImageScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
         pathItem->setPath(lassoPath.simplified());
         inLassoSelection = false;
         hasLassoSelection = true;
-    } else if (inItemSelection) {
-        inItemSelection = false;
+    } else if (inItemMovement) {
+        inItemMovement = false;
+    }
+}
+
+void ImageScene::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        if (selectedItem != nullptr) {
+            removeItem(selectedItem);
+            inItemMovement = false;
+            pastedPixmaps.removeOne(selectedItem);
+            selectedItem = nullptr;
+            if (selectionBox != nullptr) {
+                removeItem(selectionBox);
+                delete selectionBox;
+                selectionBox = nullptr;
+            }
+        }
     }
 }
 

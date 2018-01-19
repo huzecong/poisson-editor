@@ -36,6 +36,7 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const;
@@ -55,8 +56,8 @@ private:
     QPixmap selectedImage;
     QPainterPath *selectionPath = nullptr;
 
-    bool inItemSelection = false;
-    QGraphicsItem *selectedItem = nullptr;
+    bool inItemMovement = false;
+    QGraphicsPixmapItem *selectedItem = nullptr;
     QPointF selectionPosDelta;
     QGraphicsRectItem *selectionBox = nullptr;
 

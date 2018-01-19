@@ -39,11 +39,16 @@ void MainWindow::newFile() {
 
 void MainWindow::open() {
     QFileDialog dialog(this);
-    dialog.setFileMode(QFileDialog::ExistingFile);
-    dialog.setDirectory(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).last());
+    dialog.setFileMode(QFileDialog::ExistingFiles);
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    const QString settingKey = "lastOpenDirectory";
+    auto defaultDirectory = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).last();
+    auto directory = settings.value(settingKey, defaultDirectory).toString();
+    dialog.setDirectory(directory);
     if (dialog.exec() != 0) {
-        const QString fileName = dialog.selectedFiles().last();
-        openFile(fileName);
+        for (const auto &fileName : dialog.selectedFiles())
+            openFile(fileName);
+        settings.setValue(settingKey, dialog.directory().absolutePath());
     }
 }
 
