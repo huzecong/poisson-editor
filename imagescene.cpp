@@ -202,7 +202,7 @@ void ImageScene::keyPressEvent(QKeyEvent *event) {
     }
 }
 
-void ImageScene::drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const {
+void ImageScene::drawLineBresenham(utils::Matrix<bool> &mat, QPoint p0, QPoint p1) const {
     int x0 = p0.x(), y0 = p0.y(), x1 = p1.x(), y1 = p1.y();
     int dx = x1 - x0, dy = y1 - y0, inc = 1;
     if (dx == 0 && dy == 0) {
@@ -242,38 +242,24 @@ void ImageScene::drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) 
     }
 }
 
-QPixmap ImageScene::getSelectedImage() {
-    auto *path = getSelection();
-    if (path == nullptr) return QPixmap(); // null pixmap (pixmap.isNull() == true)
-    if (path == selectionPath) return selectedImage; // using cached image
-
-    qDebug() << "ImageScene::getSelectedImage perf";
+QBitmap ImageScene::getMaskFromPath(const QPainterPath &path) {
+    qDebug() << "ImageScene::getMaskFromPath perf";
     QElapsedTimer timer;
     timer.start();
 
-    // minimum containing integer bounding rect
-    QPoint topLeft = QPoint(qFloor(path->boundingRect().x()), qFloor(path->boundingRect().y()));
-    QPoint bottomRight = QPoint(qCeil(path->boundingRect().right()), qCeil(path->boundingRect().bottom()));
-    QRect boundingRect = QRect(topLeft.x(), topLeft.y(), bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
-    // simplified path has already removed all inner crossings
-    utils::BitMatrix alphaMat(boundingRect.width(), boundingRect.height());
-    for (int i = 0; i < path->elementCount(); ++i) {
-        QPoint p0 = ((QPointF)path->elementAt(i)).toPoint() - boundingRect.topLeft();
-        QPoint p1 = ((QPointF)path->elementAt((i + 1) % path->elementCount())).toPoint() - boundingRect.topLeft();
+    auto boundingRect = utils::toAlignedRect(path.boundingRect());
+    // Simplified path has already removed all inner crossings
+    utils::Matrix<bool> alphaMat(boundingRect.width(), boundingRect.height());
+    for (int i = 0; i < path.elementCount(); ++i) {
+        QPoint p0 = ((QPointF)path.elementAt(i)).toPoint() - boundingRect.topLeft();
+        QPoint p1 = ((QPointF)path.elementAt((i + 1) % path.elementCount())).toPoint() - boundingRect.topLeft();
         drawLineBresenham(alphaMat, p0, p1); // rasterize boundary with Bresenham's algorithm
     }
 
     qDebug() << "  1. draw line: " << timer.elapsed() << "ms";
     timer.restart();
 
-    /*
-    auto image = QImage(boundingRect.size(), QImage::Format_RGB32);
-    for (int i = 0; i < boundingRect.width(); ++i)
-        for (int j = 0; j < boundingRect.height(); ++j)
-            image.setPixelColor(i, j, alphaMat(i, j) ? Qt::red : Qt::black);
-     */
-
-    // fill in the inner parts
+    // Fill in the inner parts
     const QPoint dir[4] = {{0,  1},
                            {1,  0},
                            {0,  -1},
@@ -281,7 +267,7 @@ QPixmap ImageScene::getSelectedImage() {
     auto isValid = [&boundingRect](const QPoint &p) {
         return 0 <= p.x() && p.x() < boundingRect.width() && 0 <= p.y() && p.y() < boundingRect.height();
     };
-    utils::BitMatrix visited = alphaMat;
+    utils::Matrix<bool> visited = alphaMat;
     for (int i = 0; i < boundingRect.width(); ++i)
         for (int j = 0; j < boundingRect.height(); ++j) {
             if (visited(i, j)) continue;
@@ -301,7 +287,7 @@ QPixmap ImageScene::getSelectedImage() {
                     }
                 }
             }
-            // inner pixels are those that cannot reach the edge of the bounding rect
+            // Inner pixels are those that cannot reach the edge of the bounding rect
             if (isInner) {
                 for (auto &p : queue)
                     alphaMat(p) = true;
@@ -311,45 +297,20 @@ QPixmap ImageScene::getSelectedImage() {
     qDebug() << "  2. floodfill: " << timer.elapsed() << "ms";
     timer.restart();
 
-    /*
-    for (int i = 0; i < boundingRect.width(); ++i)
-        for (int j = 0; j < boundingRect.height(); ++j)
-            if (image.pixelColor(i, j) == Qt::black)
-                image.setPixelColor(i, j, alphaMat(i, j) ? Qt::white : Qt::black);
-     */
+    utils::BitMatrix bitMatrix(alphaMat);
+    auto mask = QBitmap::fromData(boundingRect.size(), bitMatrix.toBytes(), QImage::Format_MonoLSB);
+    return mask;
+}
 
-    /*
-    const int pointSize = 6;
-    std::vector<QGraphicsItem *> items;
-    for (auto *item : scene->items())
-        if (item->type() == QGraphicsTextItem::Type)
-            items.push_back(item);
-    for (auto *item : items)
-        scene->removeItem(item);
-    for (int i = 0; i < path->elementCount(); ++i) {
-        QPoint p0 = ((QPointF)path->elementAt(i)).toPoint() - boundingRect.topLeft();
-        for (int dx = -pointSize / 2; dx <= pointSize / 2; ++dx)
-            for (int dy = -pointSize / 2; dy <= pointSize / 2; ++dy) {
-                QPoint newPoint(p0.x() + dx, p0.y() + dy);
-                if (isValid(newPoint))
-                    image.setPixelColor(newPoint.x(), newPoint.y(), Qt::green);
-            }
-        auto *text = new QGraphicsTextItem(QStringLiteral("%1").arg(i));
-        text->setPos(p0);
-        text->setZValue(100);
-        text->setDefaultTextColor(Qt::yellow);
-        scene->addItem(text);
-    }
-     */
+QPixmap ImageScene::getSelectedImage() {
+    auto *path = getSelection();
+    if (path == nullptr) return QPixmap(); // null pixmap (pixmap.isNull() == true)
+    if (path == selectionPath) return selectedImage; // using cached image
 
-//    selectedImage = QPixmap::fromImage(image);
-
-    auto mask = QBitmap::fromData(boundingRect.size(), alphaMat.toBytes(), QImage::Format_MonoLSB);
+    auto mask = getMaskFromPath(*path);
+    auto boundingRect = utils::toAlignedRect(path->boundingRect());
     selectedImage = pixmap.copy(boundingRect);
     selectedImage.setMask(mask);
-//    selectedImage = QPixmap::fromImage(mask.toImage());
-
-    qDebug() << "  3. copy & set mask: " << timer.elapsed() << "ms";
 
     return selectedImage;
 }

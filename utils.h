@@ -7,10 +7,22 @@
 
 #include <cassert>
 
+#include <qmath.h>
+#include <QRect>
+#include <QRectF>
+
 namespace utils {
     template <typename T>
     T clamp(T x, T l, T r) {
         return x < l ? l : x > r ? r : x;
+    }
+
+    // Minimum containing rectangle with integer coordinates
+    inline QRect toAlignedRect(const QRectF &rect) {
+        QPoint topLeft = QPoint(qFloor(rect.x()), qFloor(rect.y()));
+        QPoint bottomRight = QPoint(qCeil(rect.right()), qCeil(rect.bottom()));
+        QRect alignedRect = QRect(topLeft.x(), topLeft.y(), bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
+        return alignedRect;
     }
 
     template <typename T>
@@ -18,6 +30,8 @@ namespace utils {
     protected:
         int n, m;
         T *arr;
+
+        friend class BitMatrix;
 
     public:
         Matrix(int n, int m) : n(n), m(m) {
@@ -74,7 +88,7 @@ namespace utils {
         }
     };
 
-    class BitMatrix : Matrix<uchar> {
+    class BitMatrix : public Matrix<uchar> {
         class BitAccessor {
             BitMatrix *parent;
             int x, y;
@@ -110,7 +124,27 @@ namespace utils {
         }
 
     public:
-        BitMatrix(int n, int m) : Matrix<uchar>((n + 7) >> 3, m), n_bits(n), m_bits(m) {}
+        BitMatrix(int n, int m)
+                : Matrix<uchar>((n + 7) >> 3, m), n_bits(n), m_bits(m) {}
+
+        BitMatrix(const Matrix<bool> &mat)
+                : Matrix<uchar>((mat.n + 7) >> 3, mat.m), n_bits(mat.n), m_bits(mat.m) {
+            int cnt = 0;
+            for (int y = 0; y < m_bits; ++y) {
+                for (int x = 0; x < n - 1; ++x) {
+                    uchar val = 0;
+                    for (int i = 7; i >= 0; --i)
+                        val = (val << 1) | static_cast<uchar>(mat((x << 3) | i, y));
+                    arr[cnt++] = val;
+                } {
+                    uchar val = 0;
+                    int offset = (n - 1) << 3;
+                    for (int i = (n_bits & 7) - 1; i >= 0; --i)
+                        val = (val << 1) | static_cast<uchar>(mat(offset | i, y));
+                    arr[cnt++] = val;
+                }
+            }
+        }
 
         inline BitAccessor operator ()(const QPoint &p) {
             return operator ()(p.x(), p.y());

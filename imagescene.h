@@ -39,9 +39,10 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    void drawLineBresenham(utils::BitMatrix &mat, QPoint p0, QPoint p1) const;
-
+    void drawLineBresenham(utils::Matrix<bool> &mat, QPoint p0, QPoint p1) const;
+    QBitmap getMaskFromPath(const QPainterPath &path);
     QPointF clampedPoint(const QPointF &point);
+
     QPixmap pixmap;
     QImage originalImage;
     QSize imageSize;
