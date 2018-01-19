@@ -31,6 +31,7 @@ ImageScene::~ImageScene() {
     delete pathPen;
     delete pathItem;
     delete imageItem;
+    delete bgAlpha;
 }
 
 void ImageScene::setPixmap(const QPixmap &pixmap) {
@@ -41,10 +42,13 @@ void ImageScene::setPixmap(const QPixmap &pixmap) {
     this->pixmap = pixmap;
     originalImage = pixmap.toImage();
     imageSize = pixmap.size();
+
     imageItem = new QGraphicsPixmapItem(pixmap);
     imageItem->setZValue(0);
     imageItem->setTransformationMode(Qt::SmoothTransformation);
     addItem(imageItem);
+
+    bgAlpha = new BitMatrix(imageSize.width(), imageSize.height());
 }
 
 const QPainterPath *ImageScene::getSelection() const {
@@ -198,6 +202,8 @@ void ImageScene::keyPressEvent(QKeyEvent *event) {
                 delete selectionBox;
                 selectionBox = nullptr;
             }
+        } else if (hasLassoSelection) {
+            eraseLassoSelection();
         }
     }
 }
@@ -242,7 +248,7 @@ void ImageScene::drawLineBresenham(utils::Matrix<bool> &mat, QPoint p0, QPoint p
     }
 }
 
-QBitmap ImageScene::getMaskFromPath(const QPainterPath &path) {
+BitMatrix ImageScene::getMaskFromPath(const QPainterPath &path) {
     qDebug() << "ImageScene::getMaskFromPath perf";
     QElapsedTimer timer;
     timer.start();
@@ -297,9 +303,8 @@ QBitmap ImageScene::getMaskFromPath(const QPainterPath &path) {
     qDebug() << "  2. floodfill: " << timer.elapsed() << "ms";
     timer.restart();
 
-    utils::BitMatrix bitMatrix(alphaMat);
-    auto mask = QBitmap::fromData(boundingRect.size(), bitMatrix.toBytes(), QImage::Format_MonoLSB);
-    return mask;
+    BitMatrix ret(alphaMat);
+    return ret;
 }
 
 QPixmap ImageScene::getSelectedImage() {
@@ -307,10 +312,22 @@ QPixmap ImageScene::getSelectedImage() {
     if (path == nullptr) return QPixmap(); // null pixmap (pixmap.isNull() == true)
     if (path == selectionPath) return selectedImage; // using cached image
 
-    auto mask = getMaskFromPath(*path);
     auto boundingRect = utils::toAlignedRect(path->boundingRect());
+    auto bitMatrix = getMaskFromPath(*path);
+    auto mask = QBitmap::fromData(boundingRect.size(), bitMatrix.toBytes(), QImage::Format_MonoLSB);
     selectedImage = pixmap.copy(boundingRect);
     selectedImage.setMask(mask);
 
     return selectedImage;
+}
+
+void ImageScene::eraseLassoSelection() {
+    auto *path = getSelection();
+    auto boundingRect = utils::toAlignedRect(path->boundingRect());
+    auto bitMatrix = getMaskFromPath(*path);
+    bgAlpha->pasteSubMatrix(bitMatrix, boundingRect.x(), boundingRect.y());
+    auto mask = QBitmap::fromData(imageSize, bgAlpha->toBytes(), QImage::Format_MonoLSB);
+//    pixmap.setMask(mask);
+    pixmap = QPixmap::fromImage(mask.toImage());
+    imageItem->setPixmap(pixmap);
 }

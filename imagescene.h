@@ -9,7 +9,9 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+
 #include "utils.h"
+#include "bitmatrix.h"
 
 
 class ImageScene : public QGraphicsScene {
@@ -40,8 +42,9 @@ protected:
 
 private:
     void drawLineBresenham(utils::Matrix<bool> &mat, QPoint p0, QPoint p1) const;
-    QBitmap getMaskFromPath(const QPainterPath &path);
+    BitMatrix getMaskFromPath(const QPainterPath &path);
     QPointF clampedPoint(const QPointF &point);
+    void eraseLassoSelection();
 
     QPixmap pixmap;
     QImage originalImage;
@@ -53,6 +56,8 @@ private:
     QGraphicsPathItem *pathItem;
     QPen *pathPen;
     QVariantAnimation *pathBorderAnimation;
+
+    BitMatrix *bgAlpha = nullptr;
 
     QPixmap selectedImage;
     QPainterPath *selectionPath = nullptr;

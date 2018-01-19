@@ -33,7 +33,7 @@ public:
     void poissonFusion();
 
 private:
-    double scale;
+    double scale = 1.0;
     void setSlider(double scale);
 
 protected:

@@ -18,10 +18,10 @@ ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
     zoomSlider->setRange(1, 200);
     zoomSlider->setTickPosition(QSlider::TicksBothSides);
     zoomSlider->setTickInterval(80);
-    zoomSlider->setValue(100);
     statusBar()->addWidget(zoomSlider);
     zoomScaleLabel = new QLabel;
     statusBar()->addWidget(zoomScaleLabel);
+
     connect(zoomSlider, &QSlider::sliderMoved, [&](int value) {
         double actualScale = value <= 100
                              ? value / 100.0
@@ -30,6 +30,8 @@ ImageWindow::ImageWindow(QWidget *parent) : QMainWindow(parent) {
         view->resetMatrix();
         view->scale(scale, scale);
     });
+
+    setSlider(1.0);
 }
 
 ImageWindow::~ImageWindow() {

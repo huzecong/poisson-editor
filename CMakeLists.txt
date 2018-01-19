@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(SOURCE_FILES
         main.cpp
         utils.h
+        bitmatrix.h
+        bitmatrix.cpp
         mainwindow.h
         mainwindow.cpp
         imagewindow.h
