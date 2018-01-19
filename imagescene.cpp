@@ -39,6 +39,11 @@ void ImageScene::setPixmap(const QPixmap &pixmap) {
     originalImage = pixmap.toImage();
     imageSize = pixmap.size();
 
+    if (imageSize.width() <= 300 && imageSize.height() <= 300) {
+        pathPen->setWidth(1);
+        pathItem->setPen(*pathPen);
+    }
+
     imageItem = new QGraphicsPixmapItem(pixmap);
     imageItem->setZValue(0);
     imageItem->setTransformationMode(Qt::SmoothTransformation);
@@ -141,6 +146,7 @@ void ImageScene::smartFill() {
     bitmat.invert();
 
     auto filledImage = ImageMagic::smartFill(image, bitmat);
+
 //    auto filledImage = ImageMagic::smartFill(pixmap.toImage(), *bgAlpha);
 //    auto filledImage = QBitmap::fromData(pixmap.size(), bitmat.toBytes(), QImage::Format_MonoLSB).toImage();
 //    auto filledImage = image;
