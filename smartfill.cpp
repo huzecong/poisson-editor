@@ -11,6 +11,8 @@
 static const int whl = 4; // window half length
 static const int windowSize = whl * 2 + 1;
 
+static const float INFI = (float)windowSize * windowSize * 255 * 255;
+
 typedef float Float;
 
 template <typename T>
@@ -187,7 +189,6 @@ public:
         for (int ch = 0; ch < 3; ++ch)
             mat[ch] = cv::Mat(n, m, CV_8UC1);
 
-        float confidenceValue = 1.0;
         while (true) {
             auto dataTable = MaxSparseTable<Float>(n, m);
 
@@ -234,7 +235,7 @@ public:
                     }
 
             cv::Mat squared(n, m, CV_32S);
-            cv::Mat error(n, m, CV_32S);
+            cv::Mat error(n, m, CV_32F);
             for (int i = 0; i < n; ++i)
                 for (int j = 0; j < m; ++j)
                     squared.at<int>(i, j) = Color(image.pixelColor(i, j)).norm();
@@ -242,14 +243,17 @@ public:
             for (int dx = -whl; dx <= whl; ++dx)
                 for (int dy = -whl; dy <= whl; ++dy)
                     maskKernel.at<uchar>(dx + whl, dy + whl) = static_cast<uchar>(mask(x + dx, y + dy));
-            cv::filter2D(squared, error, CV_32S, maskKernel);
+            cv::filter2D(squared, error, CV_32F, maskKernel);
 //            squared = windowedSum(squared, whl);
 //            cv::Mat error = toCVMat(squared);
             for (int ch = 0; ch < 3; ++ch) {
-                cv::Mat result(n, m, CV_32S);
+                cv::Mat result(n, m, CV_32F);
                 cv::Mat kernel(windowSize, windowSize, CV_8UC1);
-                mat[ch](cv::Range(x - whl, x + whl), cv::Range(y - whl, y + whl)).copyTo(kernel);
-                cv::filter2D(mat[ch], result, CV_32S, kernel);
+                for (int dx = -whl; dx <= whl; ++dx)
+                    for (int dy = -whl; dy <= whl; ++dy)
+                        kernel.at<uchar>(dx + whl, dy + whl) = static_cast<uchar>(Color(image.pixelColor(x + dx, y + dy)).col[ch]);
+//                mat[ch](cv::Range(x - whl, x + whl), cv::Range(y - whl, y + whl)).copyTo(kernel);
+                cv::filter2D(mat[ch], result, CV_32F, kernel);
                 error -= result * 2;
             }
 
@@ -263,12 +267,12 @@ public:
                     }
             }
 
-            int bestVal = INT_MAX;
+            float bestVal = INFI;
             QPoint bestPoint(-1, -1);
             for (int i = 0; i < n; ++i)
                 for (int j = 0; j < m; ++j)
-                    if (validWindow(i, j) && isValidWindow(i, j) && error.at<int>(i, j) < bestVal) {
-                        bestVal = error.at<int>(i, j);
+                    if (validWindow(i, j) && isValidWindow(i, j) && error.at<float>(i, j) < bestVal) {
+                        bestVal = error.at<float>(i, j);
                         bestPoint = QPoint(i, j);
                     }
             int srcX = bestPoint.x(), srcY = bestPoint.y();
@@ -277,7 +281,8 @@ public:
 //                mat[ch](cv::Range(srcX - whl, srcX + whl), cv::Range(srcY - whl, srcY + whl))
 //                        .copyTo(mat[ch](cv::Range(x - whl, x + whl), cv::Range(y - whl, y + whl)));
 
-            confidenceValue *= decay;
+            float confidenceValue = confidenceTable.query(x, y) / (windowSize * windowSize);
+            assert(confidenceValue < 1.0);
             for (int dx = -whl; dx <= whl; ++dx)
                 for (int dy = -whl; dy <= whl; ++dy) {
                     int i = x + dx, j = y + dy;
@@ -288,7 +293,7 @@ public:
                         confidenceTable.modify(i, j, confidenceValue);
                     }
                 }
-//            break;
+            break;
         }
         qDebug() << "done";
 
