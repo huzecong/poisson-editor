@@ -134,7 +134,7 @@ void ImageScene::poissonFusion() {
 
 void ImageScene::smartFill() {
     clearSelection();
-
+/*
     auto image = pixmap.toImage();
     BitMatrix bitmat(image.width(), image.height());
     for (int i = 0; i < image.width(); ++i)
@@ -146,8 +146,8 @@ void ImageScene::smartFill() {
     bitmat.invert();
 
     auto filledImage = ImageMagic::smartFill(image, bitmat);
-
-//    auto filledImage = ImageMagic::smartFill(pixmap.toImage(), *bgAlpha);
+*/
+    auto filledImage = ImageMagic::smartFill(pixmap.toImage(), *bgAlpha);
 //    auto filledImage = QBitmap::fromData(pixmap.size(), bitmat.toBytes(), QImage::Format_MonoLSB).toImage();
 //    auto filledImage = image;
     pixmap = QPixmap::fromImage(filledImage);

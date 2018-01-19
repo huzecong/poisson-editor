@@ -17,7 +17,7 @@ MainWindow::MainWindow()
 
     readSettings();
 
-    setWindowTitle(tr("MDI"));
+    setWindowTitle(tr("Poisson Editor"));
     setUnifiedTitleAndToolBarOnMac(true);
 }
 

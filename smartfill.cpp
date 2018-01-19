@@ -8,7 +8,7 @@
 
 #include <opencv2/opencv.hpp>
 
-static const int whl = 4; // window half length
+static const int whl = 5; // window half length
 static const int windowSize = whl * 2 + 1;
 
 static const float INFI = (float)windowSize * windowSize * 255 * 255;
@@ -120,14 +120,18 @@ public:
                     int nY = mask(i, j + 1) - mask(i, j - 1);
                     Float dataVal = 0.0;
                     if (nX != 0 || nY != 0) {
-                        int maxVal = 0;
+                        int maxVal = 0, maxLen = 0;
                         for (int dx = -whl; dx <= whl; ++dx)
                             for (int dy = -whl; dy <= whl; ++dy) {
                                 int x = i + dx, y = j + dy;
                                 if (!(mask(x + 1, y) && mask(x - 1, y) && mask(x, y + 1) && mask(x, y - 1))) continue;
                                 int dX = colorDiff(x + 1, y, x - 1, y);
                                 int dY = colorDiff(x, y + 1, x, y - 1);
-                                maxVal = std::max(maxVal, std::abs(dX * nX + dY * nY));
+                                int curLen = dX * dX + dY * dY;
+                                if (curLen > maxLen) {
+                                    maxLen = curLen;
+                                    maxVal = std::abs(dX * nX + dY * nY);
+                                }
                             }
                         auto len = static_cast<float>(sqrt(nX * nX + nY * nY));
                         dataVal = maxVal / len;
@@ -203,7 +207,7 @@ public:
                 }
             qDebug() << progress << "/" << totalPixels;
 
-            if (progress > 500) break;
+//            if (progress > 500) break;
         }
         qDebug() << "done";
 
