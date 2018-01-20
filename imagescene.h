@@ -27,6 +27,7 @@ public:
     void pastePixmap(const QPixmap &pixmap);
     const QList<QGraphicsPixmapItem *> &getPastedPixmaps() const;
     QPixmap getSelectedImage();
+    QImage getImage();
 
     void poissonFusion();
     void smartFill();

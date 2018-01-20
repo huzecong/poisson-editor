@@ -153,8 +153,8 @@ void MainWindow::cascadeWindows() {
 }
 
 void MainWindow::save() {
-//    if (activeMdiChild() && activeMdiChild()->save())
-//        statusBar()->showMessage(tr("File saved"), 2000);
+    if (activeMdiChild() && activeMdiChild()->saveFile())
+        statusBar()->showMessage(tr("File saved"), 2000);
 }
 
 void MainWindow::saveAs() {

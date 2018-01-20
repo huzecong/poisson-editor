@@ -22,6 +22,7 @@ public:
     bool loadFile(const QString &filePath);
     const QString currentFile() const;
     const QString currentFileName() const;
+    bool saveFile();
 
     void showWithSizeHint(QSize parentSize);
 
@@ -33,16 +34,16 @@ public:
     void poissonFusion();
     void smartFill();
 
-private:
-    double scale = 1.0;
-    void setSlider(double scale);
-
 protected:
     bool event(QEvent *event) override;
     bool gestureEvent(QGestureEvent *event);
     bool nativeGestureEvent(QNativeGestureEvent *event); // macOS-specific
 
 private:
+    void setSlider(double scale);
+
+    double scale = 1.0;
+
     QSize imageSize;
     bool inGesture = false;
     double scaleBeforeGesture;

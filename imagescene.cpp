@@ -351,6 +351,10 @@ QPixmap ImageScene::getSelectedImage() {
     return selectedImage;
 }
 
+QImage ImageScene::getImage() {
+    return pixmap.toImage();
+}
+
 void ImageScene::eraseLassoSelection() {
     auto *path = getSelection();
     auto boundingRect = utils::toAlignedRect(path->boundingRect());
